@@ -1,31 +1,44 @@
-# 客户持仓分析报告项目
+# customer-stock-report
 
-该目录包含一个独立的报告项目，展示离线 Spark 更新后的两个数据库表：
+customer-stock-report 是一个客户持仓与收益分析报表系统。项目包含 Spring Boot 后端和 Vue 3 前端，用于展示离线计算后的客户资产、持仓、收益、日度收益和股票明细数据。
 
-- `public.customer_stock_report_summary`
-- `public.customer_stock_report_detail`
+## 功能
+
+- 展示全部交易账户的汇总概览。
+- 查看单个账户的资产、收益和持仓详情。
+- 展示账户收益贡献、仓位分布、未完成匹配交易和股票明细。
+- 后端从 PostgreSQL 报表表读取数据并提供 REST API。
+- 前端通过运行时配置切换 API 地址，支持独立开发和静态部署。
+
+## 技术栈
+
+- 后端：Java 17、Spring Boot 3.3、Spring JDBC、PostgreSQL
+- 前端：Vue 3、TypeScript、Vite、Ant Design Vue、ECharts、Axios
 
 ## 目录结构
 
-- `backend`：Spring Boot 后端接口服务
-- `frontend`：Vue3 + Ant Design Vue + ECharts 前端页面
+```text
+backend/   Spring Boot API 服务和静态资源托管
+frontend/  Vue 3 前端应用
+```
 
-## 设计说明
+## 数据库配置
 
-- 首页展示所有账户总览
-- 点击账户进入账户详情页
-- 账户详情展示：
-  - 账户摘要
-  - 收益贡献图
-  - 仓位分布图
-  - 未完成匹配交易图
-  - 股票明细表
-  - 股票详情抽屉
-- 颜色遵循 A 股习惯：
-  - 红色代表盈利/上涨
-  - 绿色代表亏损/下跌
-- 页面默认仅在首次进入时加载数据
-- 如需获取最新数据，使用页面右上角“立即刷新”
+后端使用环境变量读取数据库连接信息，默认只指向本地示例库：
+
+```bash
+export POSTGRES_JDBC_URL=jdbc:postgresql://localhost:5432/saylove02
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=your_database_password
+```
+
+Windows PowerShell 示例：
+
+```powershell
+$env:POSTGRES_JDBC_URL="jdbc:postgresql://localhost:5432/saylove02"
+$env:POSTGRES_USER="postgres"
+$env:POSTGRES_PASSWORD="your_database_password"
+```
 
 ## 后端启动
 
@@ -44,13 +57,15 @@ npm install
 npm run dev
 ```
 
-默认地址：`http://localhost:5174`
+默认开发地址：`http://localhost:5174`
 
-## 运行配置
+前端运行时 API 地址配置文件：
 
-前端可修改：
+```text
+frontend/public/runtime-config.json
+```
 
-`frontend/public/runtime-config.json`
+示例：
 
 ```json
 {
@@ -58,6 +73,37 @@ npm run dev
 }
 ```
 
-后端数据库配置：
+## 生产构建
 
-`backend/src/main/resources/application.yml`
+构建前端：
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+构建后端：
+
+```bash
+cd backend
+mvn clean package -DskipTests
+```
+
+运行后端 Jar：
+
+```bash
+java -jar target/customer-stock-report-backend-1.0.0.jar
+```
+
+## 部署方式
+
+1. 部署 PostgreSQL，并准备报表查询所需的数据表。
+2. 在服务器上配置 `POSTGRES_JDBC_URL`、`POSTGRES_USER` 和 `POSTGRES_PASSWORD`。
+3. 构建前端并将 `frontend/dist` 交给后端资源复制流程，或使用 Nginx 独立托管。
+4. 构建并运行 Spring Boot 后端。
+5. 确认 `runtime-config.json` 中的 `apiBaseUrl` 指向实际后端地址。
+
+## 安全说明
+
+仓库不应提交真实数据库密码、构建产物、IDE 配置、`.env` 文件或服务器地址。生产凭据请通过环境变量、密钥管理服务或部署平台配置注入。

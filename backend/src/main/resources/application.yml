@@ -6,6 +6,6 @@ spring:
     name: customer-stock-report-backend
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://api.pneumaai.cn:5432/saylove02
-    username: postgres
-    password: SaySouler@3.1415
+    url: ${POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/saylove02}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:}
