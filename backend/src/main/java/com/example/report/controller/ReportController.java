@@ -50,11 +50,12 @@ public class ReportController {
     @GetMapping("/accounts/{tradeAccount}/stocks")
     public ApiResponse<?> accountStocks(
             @PathVariable String tradeAccount,
+            @RequestParam(required = false) String profitDate,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String profitType,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortOrder) {
-        return ApiResponse.ok(reportQueryService.getAccountStocks(tradeAccount, keyword, profitType, sortBy, sortOrder));
+        return ApiResponse.ok(reportQueryService.getAccountStocks(tradeAccount, profitDate, keyword, profitType, sortBy, sortOrder));
     }
 
     @GetMapping("/accounts/{tradeAccount}/charts")

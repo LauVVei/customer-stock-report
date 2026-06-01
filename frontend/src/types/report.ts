@@ -9,6 +9,9 @@ export interface DailyOverviewPoint {
   total_assets: number;
   total_available_amount: number;
   total_market_value: number;
+  daily_profit: number;
+  daily_profit_rate: number;
+  daily_realized_profit: number;
   total_holding_actual_profit: number;
   total_init_cost_holding_profit: number;
   account_profit_rate: number;
@@ -29,6 +32,9 @@ export interface AccountDailyPoint {
   total_holding_actual_profit: number;
   total_init_cost_holding_profit: number;
   account_profit_rate: number;
+  daily_profit: number;
+  daily_profit_rate: number;
+  daily_realized_profit: number;
   daily_intraday_t_profit: number;
   cumulative_realized_net_profit: number;
   unmatched_trade_count: number;
@@ -44,10 +50,12 @@ export interface StockDailyPoint {
   holding_quantity: number;
   latest_price: number;
   market_value: number;
+  allocation_amount: number;
   holding_actual_profit: number;
   holding_actual_profit_rate: number;
   init_cost_holding_profit: number;
   init_cost_holding_profit_rate: number;
+  daily_realized_profit: number;
   daily_intraday_t_profit: number;
   unmatched_trade_count: number;
   t_trade_count: number;
@@ -75,6 +83,9 @@ export interface AccountSummary {
   latest_profit_date?: string;
   cumulative_realized_net_profit?: number;
   daily_intraday_t_profit?: number;
+  daily_profit?: number;
+  daily_profit_rate?: number;
+  daily_realized_profit?: number;
 }
 
 export interface StockDetail {
@@ -133,4 +144,5 @@ export interface StockDetail {
   report_updated_time: string;
   latest_profit_date?: string;
   daily_intraday_t_profit?: number;
+  daily_realized_profit?: number;
 }

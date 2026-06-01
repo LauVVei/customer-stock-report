@@ -41,6 +41,8 @@ public class ReportQueryService {
                     coalesce(sum(s.total_trade_cost), 0) as total_trade_cost,
                     coalesce(sum(s.unmatched_trade_count), 0) as unmatched_trade_count,
                     coalesce(sum(ld.cumulative_realized_net_profit), 0) as cumulative_realized_net_profit,
+                    coalesce(sum(ld.daily_profit), 0) as daily_profit,
+                    coalesce(sum(ld.daily_realized_profit), 0) as daily_realized_profit,
                     coalesce(sum(ld.daily_intraday_t_profit), 0) as daily_intraday_t_profit,
                     max(ld.profit_date) as latest_profit_date,
                     max(s.report_updated_time) as report_updated_time
@@ -83,19 +85,25 @@ public class ReportQueryService {
         StringBuilder sql = new StringBuilder("""
                 select
                     profit_date,
-                    coalesce(sum(total_assets), 0) as total_assets,
-                    coalesce(sum(total_available_amount), 0) as total_available_amount,
-                    coalesce(sum(total_market_value), 0) as total_market_value,
-                    coalesce(sum(total_holding_actual_profit), 0) as total_holding_actual_profit,
-                    coalesce(sum(total_init_cost_holding_profit), 0) as total_init_cost_holding_profit,
+                    sum(total_assets) as total_assets,
+                    sum(total_available_amount) as total_available_amount,
+                    sum(total_market_value) as total_market_value,
+                    sum(daily_profit) as daily_profit,
                     case
-                        when coalesce(sum(total_assets), 0) = 0 then 0
-                        else coalesce(sum(total_holding_actual_profit), 0) / nullif(sum(total_assets), 0) * 100
+                        when lag(sum(total_assets)) over (order by profit_date) is null then null
+                        else sum(daily_profit) / nullif(lag(sum(total_assets)) over (order by profit_date), 0) * 100
+                    end as daily_profit_rate,
+                    sum(daily_realized_profit) as daily_realized_profit,
+                    sum(total_holding_actual_profit) as total_holding_actual_profit,
+                    sum(total_init_cost_holding_profit) as total_init_cost_holding_profit,
+                    case
+                        when sum(total_assets) is null then null
+                        else sum(total_holding_actual_profit) / nullif(sum(total_assets), 0) * 100
                     end as account_profit_rate,
-                    coalesce(sum(cumulative_realized_net_profit), 0) as cumulative_realized_net_profit,
-                    coalesce(sum(daily_intraday_t_profit), 0) as daily_intraday_t_profit,
-                    coalesce(sum(unmatched_trade_count), 0) as unmatched_trade_count,
-                    coalesce(sum(total_trades), 0) as total_trades
+                    sum(cumulative_realized_net_profit) as cumulative_realized_net_profit,
+                    sum(daily_intraday_t_profit) as daily_intraday_t_profit,
+                    sum(unmatched_trade_count) as unmatched_trade_count,
+                    sum(total_trades) as total_trades
                 from %s
                 where 1 = 1
                 """.formatted(SUMMARY_DAILY_TABLE));
@@ -186,6 +194,9 @@ public class ReportQueryService {
                     total_holding_actual_profit,
                     total_init_cost_holding_profit,
                     account_profit_rate,
+                    daily_profit,
+                    daily_profit_rate,
+                    daily_realized_profit,
                     daily_intraday_t_profit,
                     cumulative_realized_net_profit,
                     unmatched_trade_count,
@@ -200,7 +211,11 @@ public class ReportQueryService {
         return jdbcTemplate.queryForList(sql.toString(), params.toArray());
     }
 
-    public List<Map<String, Object>> getAccountStocks(String tradeAccount, String keyword, String profitType, String sortBy, String sortOrder) {
+    public List<Map<String, Object>> getAccountStocks(String tradeAccount, String profitDate, String keyword, String profitType, String sortBy, String sortOrder) {
+        if (profitDate != null && !profitDate.isBlank()) {
+            return getAccountStocksByProfitDate(tradeAccount, profitDate, keyword, profitType, sortBy, sortOrder);
+        }
+
         String safeSortBy = mapSortBy(sortBy);
         String safeSortOrder = "asc".equalsIgnoreCase(sortOrder) ? "asc" : "desc";
 
@@ -297,6 +312,96 @@ public class ReportQueryService {
         return jdbcTemplate.queryForList(sql.toString(), params.toArray());
     }
 
+    private List<Map<String, Object>> getAccountStocksByProfitDate(String tradeAccount, String profitDate, String keyword, String profitType, String sortBy, String sortOrder) {
+        String safeSortBy = mapDailySortBy(sortBy);
+        String safeSortOrder = "asc".equalsIgnoreCase(sortOrder) ? "asc" : "desc";
+
+        StringBuilder sql = new StringBuilder("""
+                select
+                    trade_account,
+                    stock_code,
+                    stock_name,
+                    profit_date as latest_profit_date,
+                    holding_quantity,
+                    holding_cost_price,
+                    init_cost_price,
+                    latest_price,
+                    null as latest_price_time,
+                    null as total_assets,
+                    null as available_amount,
+                    market_value,
+                    allocation_amount,
+                    null as allocation_ratio,
+                    null as latest_vs_current_cost_price_diff,
+                    null as current_vs_init_cost_price_diff,
+                    holding_actual_profit,
+                    holding_actual_profit_rate,
+                    null as init_cost_holding_profit,
+                    null as init_cost_holding_profit_rate,
+                    null as allocation_current_profit,
+                    null as allocation_profit_rate,
+                    null as total_trades,
+                    null as win_trades,
+                    null as loss_trades,
+                    null as stock_win_rate,
+                    null as buy_count,
+                    null as sell_count,
+                    null as buy_quantity,
+                    null as sell_quantity,
+                    null as buy_amount,
+                    null as sell_amount,
+                    null as avg_buy_price,
+                    null as avg_sell_price,
+                    null as intraday_t_profit,
+                    null as total_fee,
+                    null as total_commission,
+                    null as total_trade_cost,
+                    null as last_trade_time,
+                    null as unmatched_trade_count,
+                    null as unmatched_buy_open_count,
+                    null as unmatched_sell_open_count,
+                    null as unmatched_quantity,
+                    null as unmatched_amount,
+                    null as unmatched_avg_price,
+                    null as first_unmatched_trade_time,
+                    null as last_unmatched_trade_time,
+                    t_trade_count,
+                    null as t_success_count,
+                    null as t_fail_count,
+                    null as avg_t_profit,
+                    null as max_t_profit,
+                    null as min_t_profit,
+                    null as report_updated_time,
+                    daily_realized_profit,
+                    daily_intraday_t_profit
+                from %s
+                where trade_account = ?
+                  and profit_date::date = ?::date
+                """.formatted(DETAIL_DAILY_TABLE));
+
+        List<Object> params = new ArrayList<>();
+        params.add(tradeAccount);
+        params.add(profitDate);
+
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append(" and (stock_code like ? or stock_name like ?)");
+            String likeKeyword = "%" + keyword.trim() + "%";
+            params.add(likeKeyword);
+            params.add(likeKeyword);
+        }
+
+        if ("profit".equalsIgnoreCase(profitType)) {
+            sql.append(" and holding_actual_profit > 0");
+        } else if ("loss".equalsIgnoreCase(profitType)) {
+            sql.append(" and holding_actual_profit < 0");
+        } else if ("tplus".equalsIgnoreCase(profitType)) {
+            sql.append(" and coalesce(daily_intraday_t_profit, 0) > 0");
+        }
+
+        sql.append(" order by ").append(safeSortBy).append(" ").append(safeSortOrder).append(", market_value desc");
+        return jdbcTemplate.queryForList(sql.toString(), params.toArray());
+    }
+
     public Map<String, Object> getAccountCharts(String tradeAccount) {
         Map<String, Object> result = new LinkedHashMap<>();
 
@@ -390,10 +495,12 @@ public class ReportQueryService {
                     holding_quantity,
                     latest_price,
                     market_value,
+                    allocation_amount,
                     holding_actual_profit,
                     holding_actual_profit_rate,
                     init_cost_holding_profit,
                     init_cost_holding_profit_rate,
+                    daily_realized_profit,
                     daily_intraday_t_profit,
                     unmatched_trade_count,
                     t_trade_count,
@@ -433,10 +540,27 @@ public class ReportQueryService {
             case "marketValue", "market_value" -> "d.market_value";
             case "unmatchedTradeCount", "unmatched_trade_count" -> "d.unmatched_trade_count";
             case "intradayTProfit", "daily_intraday_t_profit" -> "coalesce(ld.daily_intraday_t_profit, 0)";
+            case "intraday_t_profit" -> "d.intraday_t_profit";
             case "latestPrice", "latest_price" -> "d.latest_price";
             case "latestDiff", "latest_vs_current_cost_price_diff" -> "d.latest_vs_current_cost_price_diff";
             case "costDrift", "current_vs_init_cost_price_diff" -> "d.current_vs_init_cost_price_diff";
             default -> "coalesce(ld.daily_intraday_t_profit, 0)";
+        };
+    }
+
+    private String mapDailySortBy(String sortBy) {
+        if (sortBy == null || sortBy.isBlank()) {
+            return "market_value";
+        }
+        return switch (sortBy) {
+            case "holdingActualProfitRate", "holding_actual_profit_rate" -> "holding_actual_profit_rate";
+            case "holdingActualProfit", "holding_actual_profit", "currentProfit" -> "holding_actual_profit";
+            case "marketValue", "market_value" -> "market_value";
+            case "dailyRealizedProfit", "daily_realized_profit" -> "daily_realized_profit";
+            case "intradayTProfit", "daily_intraday_t_profit", "intraday_t_profit" -> "daily_intraday_t_profit";
+            case "latestPrice", "latest_price" -> "latest_price";
+            case "allocationAmount", "allocation_amount" -> "allocation_amount";
+            default -> "market_value";
         };
     }
 }

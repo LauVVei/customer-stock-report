@@ -11,6 +11,7 @@
       </div>
       <div class="hero-actions">
         <span class="summary-tag">最新日表 {{ formatDate(summary?.latest_profit_date) }}</span>
+        <span class="summary-tag">当前查看 {{ selectedProfitDate === ALL_HOLDINGS_VALUE ? '全部持仓' : formatDate(selectedProfitDate) }}</span>
         <span class="summary-tag">快照时间 {{ formatTime(summary?.report_updated_time) }}</span>
         <a-button @click="loadAll" :loading="loading">刷新账户工作台</a-button>
       </div>
@@ -22,40 +23,40 @@
         <strong>{{ summary?.holding_stock_count ?? 0 }}</strong>
       </div>
       <div class="signal-item">
-        <span class="signal-label">今日净收益</span>
-        <strong :class="profitClass(summary?.total_holding_actual_profit)">{{ formatMoney(summary?.total_holding_actual_profit) }}</strong>
+        <span class="signal-label">当日资产变化</span>
+        <strong :class="profitClass(selectedDaySummary?.daily_profit)">{{ formatMoney(selectedDaySummary?.daily_profit) }}</strong>
       </div>
       <div class="signal-item">
-        <span class="signal-label">日内 T 累计已实现收益</span>
-        <strong :class="profitClass(summary?.total_intraday_t_profit)">{{ formatMoney(summary?.total_intraday_t_profit) }}</strong>
+        <span class="signal-label">当日变化率</span>
+        <strong :class="profitClass(selectedDaySummary?.daily_profit_rate)">{{ formatPercent(selectedDaySummary?.daily_profit_rate) }}</strong>
       </div>
       <div class="signal-item">
-        <span class="signal-label">未匹配交易数</span>
-        <strong>{{ summary?.unmatched_trade_count ?? 0 }}</strong>
+        <span class="signal-label">当日已实现收益</span>
+        <strong :class="profitClass(selectedDaySummary?.daily_realized_profit)">{{ formatMoney(selectedDaySummary?.daily_realized_profit) }}</strong>
       </div>
     </section>
 
     <div class="kpi-grid detail-kpi-grid">
-      <MetricCard title="总资产" :value="formatMoney(summary?.total_assets)" subtext="账户层总资产快照" />
-      <MetricCard title="可用资金" :value="formatMoney(summary?.total_available_amount)" subtext="可继续调度的资金" />
-      <MetricCard title="持仓市值" :value="formatMoney(summary?.total_market_value)" subtext="当前全部持仓市值" />
-      <MetricCard title="今日净收益" :value="formatMoney(summary?.total_holding_actual_profit)" :type="profitType(summary?.total_holding_actual_profit)" subtext="按最新快照口径汇总的当日净收益" />
+      <MetricCard title="日终总资产" :value="formatMoney(selectedDaySummary?.total_assets)" subtext="所选交易日收盘后的账户资产" />
+      <MetricCard title="日终现金" :value="formatMoney(selectedDaySummary?.total_available_amount)" subtext="所选交易日回推后的现金余额" />
+      <MetricCard title="日终持仓市值" :value="formatMoney(selectedDaySummary?.total_market_value)" subtext="按当日收盘价计算" />
+      <MetricCard title="当日资产变化" :value="formatMoney(selectedDaySummary?.daily_profit)" :type="profitType(selectedDaySummary?.daily_profit)" subtext="当日总资产 - 前一交易日总资产" />
+      <MetricCard title="当日变化率" :value="formatPercent(selectedDaySummary?.daily_profit_rate)" :type="profitType(selectedDaySummary?.daily_profit_rate)" subtext="当日资产变化 ÷ 前一交易日总资产" />
+      <MetricCard title="当日已实现收益" :value="formatMoney(selectedDaySummary?.daily_realized_profit)" :type="profitType(selectedDaySummary?.daily_realized_profit)" subtext="所选交易日交易兑现收益" />
       <MetricCard title="当前总净利润" :value="formatMoney(summary?.total_holding_actual_profit)" :type="profitType(summary?.total_holding_actual_profit)" subtext="按 最新价 - 当前成本价 计算" />
-      <MetricCard title="初始成本口径总净利润" :value="formatMoney(summary?.total_init_cost_holding_profit)" :type="profitType(summary?.total_init_cost_holding_profit)" subtext="按 最新价 - 初始成本价 计算" />
-      <MetricCard title="账户当前净利润率" :value="formatPercent(summary?.account_profit_rate)" :type="profitType(summary?.account_profit_rate)" subtext="当前总净利润 ÷ 总资产" />
       <MetricCard title="今日日内T收益" :value="formatMoney(summary?.daily_intraday_t_profit)" :type="profitType(summary?.daily_intraday_t_profit)" subtext="最新日表中的当日 T 收益" />
     </div>
 
     <div class="chart-grid-3">
-      <ChartCard title="近 10 日账户当前总净利润" :option="holdingProfitTrendOption" height="320px" />
-      <ChartCard title="近 10 日初始成本口径总净利润" :option="initProfitTrendOption" height="320px" />
-      <ChartCard title="近 10 日账户当前净利润率" :option="profitRateTrendOption" height="320px" />
+      <ChartCard title="每日总资产曲线" :option="totalAssetsTrendOption" height="320px" />
+      <ChartCard title="每日资产变化" :option="dailyProfitTrendOption" height="320px" />
+      <ChartCard title="每日变化率" :option="dailyProfitRateTrendOption" height="320px" />
     </div>
 
     <div class="chart-grid-3">
-      <ChartCard title="近 10 日持仓股票数变化" :option="holdingCountTrendOption" height="320px" />
-      <ChartCard title="近 10 日今日日内T收益" :option="dailyTTrendOption" height="320px" />
-      <ChartCard title="近 10 日未匹配交易变化" :option="unmatchedTrendOption" height="320px" />
+      <ChartCard title="现金 / 持仓市值结构" :option="assetStructureOption" height="320px" />
+      <ChartCard title="每日已实现收益" :option="dailyRealizedTrendOption" height="320px" />
+      <ChartCard title="每日持仓浮盈" :option="holdingProfitTrendOption" height="320px" />
     </div>
 
     <div class="chart-grid-3">
@@ -80,14 +81,19 @@
 
     <div class="section-card">
       <div class="section-title">
-        <h3>股票诊断明细</h3>
+        <h3>持仓明细</h3>
         <div class="filter-row">
+          <a-select v-model:value="selectedProfitDate" style="width: 180px" @change="reloadStocks">
+            <a-select-option :value="ALL_HOLDINGS_VALUE">全部持仓</a-select-option>
+            <a-select-option v-for="item in accountDailyOptions" :key="item.profit_date" :value="item.profit_date">
+              {{ formatDate(item.profit_date) }}
+            </a-select-option>
+          </a-select>
           <a-input v-model:value="keyword" allow-clear placeholder="搜索股票代码或名称" style="width: 220px" @pressEnter="reloadStocks" />
           <a-select v-model:value="profitTypeFilter" style="width: 220px" @change="reloadStocks">
             <a-select-option value="all">全部股票</a-select-option>
             <a-select-option value="profit">仅看当前净利润为正</a-select-option>
             <a-select-option value="loss">仅看当前净利润为负</a-select-option>
-            <a-select-option value="unmatched">仅看存在未匹配交易</a-select-option>
             <a-select-option value="tplus">仅看今日日内T收益为正</a-select-option>
           </a-select>
           <a-button @click="reloadStocks">应用筛选</a-button>
@@ -141,6 +147,7 @@ const palette = ['#d62828', '#f77f00', '#fcbf49', '#2a9d8f', '#277da1', '#577590
 
 const route = useRoute();
 const router = useRouter();
+const ALL_HOLDINGS_VALUE = '__all__';
 const tradeAccount = computed(() => String(route.params.tradeAccount || ''));
 const loading = ref(false);
 const drawerLoading = ref(false);
@@ -152,7 +159,13 @@ const stocks = ref<StockDetail[]>([]);
 const activeStock = ref<StockDetail | null>(null);
 const keyword = ref('');
 const profitTypeFilter = ref('all');
-const sortBy = ref('daily_intraday_t_profit');
+const selectedProfitDate = ref<string>(ALL_HOLDINGS_VALUE);
+const selectedDaySummary = computed(() => {
+  const selectedDate = normalizeDateParam(selectedProfitDate.value);
+  return accountDaily.value.find((item) => normalizeDateParam(item.profit_date) === selectedDate) || accountDaily.value.at(-1) || null;
+});
+const accountDailyOptions = computed(() => [...accountDaily.value].reverse());
+const sortBy = ref('market_value');
 const sortOrder = ref<'asc' | 'desc'>('desc');
 
 const moneyColumns = [
@@ -160,12 +173,14 @@ const moneyColumns = [
   'init_cost_price',
   'latest_price',
   'market_value',
+  'allocation_amount',
   'holding_actual_profit',
   'init_cost_holding_profit',
   'latest_vs_current_cost_price_diff',
   'current_vs_init_cost_price_diff',
   'intraday_t_profit',
   'daily_intraday_t_profit',
+  'daily_realized_profit',
 ];
 const percentColumns = ['holding_actual_profit_rate', 'init_cost_holding_profit_rate', 'allocation_ratio', 'stock_win_rate'];
 const timeColumns = ['latest_price_time', 'last_trade_time'];
@@ -180,25 +195,23 @@ const columns = [
   { title: '初始成本价', dataIndex: 'init_cost_price', key: 'init_cost_price', width: 120 },
   { title: '最新价', dataIndex: 'latest_price', key: 'latest_price', sorter: true, width: 110 },
   { title: '持仓市值', dataIndex: 'market_value', key: 'market_value', sorter: true, width: 130 },
+  { title: '持仓成本金额', dataIndex: 'allocation_amount', key: 'allocation_amount', sorter: true, width: 135 },
   { title: '当前净利润', dataIndex: 'holding_actual_profit', key: 'holding_actual_profit', sorter: true, width: 135 },
   { title: '当前净利润率', dataIndex: 'holding_actual_profit_rate', key: 'holding_actual_profit_rate', sorter: true, width: 140 },
-  { title: '初始成本口径净利润', dataIndex: 'init_cost_holding_profit', key: 'init_cost_holding_profit', sorter: true, width: 160 },
-  { title: '初始成本口径净利润率', dataIndex: 'init_cost_holding_profit_rate', key: 'init_cost_holding_profit_rate', sorter: true, width: 170 },
-  { title: '日内 T 累计已实现收益', dataIndex: 'intraday_t_profit', key: 'intraday_t_profit', sorter: true, width: 170 },
+  { title: '日内 T 累计收益', dataIndex: 'intraday_t_profit', key: 'intraday_t_profit', sorter: true, width: 150 },
+  { title: '当日已实现收益', dataIndex: 'daily_realized_profit', key: 'daily_realized_profit', sorter: true, width: 150 },
   { title: '今日日内T收益', dataIndex: 'daily_intraday_t_profit', key: 'daily_intraday_t_profit', sorter: true, width: 150 },
-  { title: '最新价 - 当前成本价', dataIndex: 'latest_vs_current_cost_price_diff', key: 'latest_vs_current_cost_price_diff', sorter: true, width: 160 },
-  { title: '当前成本价 - 初始成本价', dataIndex: 'current_vs_init_cost_price_diff', key: 'current_vs_init_cost_price_diff', sorter: true, width: 175 },
   { title: '未匹配交易', dataIndex: 'unmatched_trade_count', key: 'unmatched_trade_count', sorter: true, width: 120 },
   { title: '最近成交时间', dataIndex: 'last_trade_time', key: 'last_trade_time', width: 180 },
   { title: '操作', key: 'action', fixed: 'right', width: 140 },
 ];
 
+const totalAssetsTrendOption = computed(() => buildLineOption('每日总资产曲线', accountDaily.value, 'total_assets', '#243447'));
+const dailyProfitTrendOption = computed(() => buildBarOption('每日资产变化', accountDaily.value, 'daily_profit'));
+const dailyProfitRateTrendOption = computed(() => buildLineOption('每日变化率', accountDaily.value, 'daily_profit_rate', '#277da1'));
+const assetStructureOption = computed(() => buildStackOption(accountDaily.value));
+const dailyRealizedTrendOption = computed(() => buildBarOption('每日已实现收益', accountDaily.value, 'daily_realized_profit'));
 const holdingProfitTrendOption = computed(() => buildLineOption('近 10 日账户当前总净利润', accountDaily.value, 'total_holding_actual_profit', '#c1121f'));
-const initProfitTrendOption = computed(() => buildLineOption('近 10 日初始成本口径总净利润', accountDaily.value, 'total_init_cost_holding_profit', '#8b5cf6'));
-const profitRateTrendOption = computed(() => buildLineOption('近 10 日账户当前净利润率', accountDaily.value, 'account_profit_rate', '#277da1'));
-const holdingCountTrendOption = computed(() => buildLineOption('近 10 日持仓股票数变化', accountDaily.value, 'holding_stock_count', '#5b6cff'));
-const dailyTTrendOption = computed(() => buildBarOption('近 10 日今日日内T收益', accountDaily.value, 'daily_intraday_t_profit'));
-const unmatchedTrendOption = computed(() => buildLineOption('近 10 日未匹配交易变化', accountDaily.value, 'unmatched_trade_count', '#f77f00'));
 const holdingProfitTopOption = computed(() => buildRankingOption('股票当前净利润 Top10', charts.value.holdingProfitTop, 'holding_actual_profit'));
 const dailyTTopOption = computed(() => buildRankingOption('股票今日日内T收益 Top10', charts.value.dailyIntradayTop, 'daily_intraday_t_profit'));
 const unmatchedTopOption = computed(() => buildRankingOption('股票未匹配交易 Top10', charts.value.unmatchedTop, 'unmatched_trade_count'));
@@ -214,6 +227,7 @@ async function loadAll() {
     ]);
     summary.value = summaryData;
     accountDaily.value = dailyData;
+    selectedProfitDate.value = ALL_HOLDINGS_VALUE;
     charts.value = normalizeCharts(chartData);
     await reloadStocks();
   } finally {
@@ -224,6 +238,7 @@ async function loadAll() {
 async function reloadStocks() {
   stocks.value = await getAccountStocks(tradeAccount.value, {
     keyword: keyword.value || undefined,
+    profitDate: selectedProfitDate.value === ALL_HOLDINGS_VALUE ? undefined : normalizeDateParam(selectedProfitDate.value),
     profitType: profitTypeFilter.value === 'all' ? undefined : profitTypeFilter.value,
     sortBy: sortBy.value,
     sortOrder: sortOrder.value,
@@ -266,24 +281,65 @@ function normalizeList(list: any[] = [], key: string) {
 }
 
 function buildLineOption(title: string, list: AccountDailyPoint[], valueKey: keyof AccountDailyPoint, color: string) {
+  const filtered = list.filter((item) => item[valueKey] != null);
+  const zoomStart = filtered.length > 10 ? ((filtered.length - 10) / filtered.length) * 100 : 0;
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 46, bottom: 56 },
-    xAxis: { type: 'category', data: list.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
+    grid: { left: 50, right: 20, top: 46, bottom: 80 },
+    xAxis: { type: 'category', data: filtered.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
     yAxis: { type: 'value', axisLabel: { color: '#6b7280' }, splitLine: { lineStyle: { color: 'rgba(29, 39, 53, 0.08)' } } },
-    series: [{ type: 'line', smooth: true, data: list.map((item) => Number(item[valueKey] || 0)), symbol: 'circle', symbolSize: 8, lineStyle: { width: 3, color }, itemStyle: { color }, areaStyle: { color: `${color}22` } }],
+    dataZoom: [
+      { type: 'inside', start: zoomStart, end: 100, zoomOnMouseWheel: false, moveOnMouseMove: true, moveOnMouseWheel: true },
+    ],
+    series: [{ type: 'line', smooth: true, data: filtered.map((item) => Number(item[valueKey])), symbol: 'circle', symbolSize: 8, lineStyle: { width: 3, color }, itemStyle: { color }, areaStyle: { color: `${color}22` } }],
     title: { text: title, left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
   };
 }
 
 function buildBarOption(title: string, list: AccountDailyPoint[], valueKey: keyof AccountDailyPoint) {
+  const filtered = list.filter((item) => item[valueKey] != null);
+  const zoomStart = filtered.length > 10 ? ((filtered.length - 10) / filtered.length) * 100 : 0;
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 46, bottom: 56 },
+    grid: { left: 50, right: 20, top: 46, bottom: 80 },
+    xAxis: { type: 'category', data: filtered.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
+    yAxis: { type: 'value', axisLabel: { color: '#6b7280' }, splitLine: { lineStyle: { color: 'rgba(29, 39, 53, 0.08)' } } },
+    dataZoom: [
+      { type: 'inside', start: zoomStart, end: 100, zoomOnMouseWheel: false, moveOnMouseMove: true, moveOnMouseWheel: true },
+    ],
+    series: [{ type: 'bar', data: filtered.map((item) => Number(item[valueKey])), barMaxWidth: 28, itemStyle: { borderRadius: [8, 8, 0, 0], color: (params: any) => Number(params.value) >= 0 ? '#c1121f' : '#067647' } }],
+    title: { text: title, left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
+  };
+}
+
+function buildStackOption(list: AccountDailyPoint[]) {
+  const zoomStart = list.length > 10 ? ((list.length - 10) / list.length) * 100 : 0;
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { top: 22, data: ['现金', '持仓市值'] },
+    grid: { left: 50, right: 20, top: 70, bottom: 80 },
     xAxis: { type: 'category', data: list.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
     yAxis: { type: 'value', axisLabel: { color: '#6b7280' }, splitLine: { lineStyle: { color: 'rgba(29, 39, 53, 0.08)' } } },
-    series: [{ type: 'bar', data: list.map((item) => Number(item[valueKey] || 0)), barMaxWidth: 28, itemStyle: { borderRadius: [8, 8, 0, 0], color: (params: any) => Number(params.value || 0) >= 0 ? '#c1121f' : '#067647' } }],
-    title: { text: title, left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
+    dataZoom: [
+      { type: 'inside', start: zoomStart, end: 100, zoomOnMouseWheel: false, moveOnMouseMove: true, moveOnMouseWheel: true },
+    ],
+    series: [
+      {
+        name: '现金',
+        type: 'bar',
+        stack: 'asset',
+        data: list.map((item) => Number(item.total_available_amount ?? 0)),
+        itemStyle: { color: '#277da1' },
+      },
+      {
+        name: '持仓市值',
+        type: 'bar',
+        stack: 'asset',
+        data: list.map((item) => Number(item.total_market_value ?? 0)),
+        itemStyle: { color: '#d9ab4d' },
+      },
+    ],
+    title: { text: '现金 / 持仓市值结构', left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
   };
 }
 
@@ -306,6 +362,11 @@ function formatPercent(value?: number | null) {
 }
 function formatDate(value?: string | null) {
   return value ? dayjs(value).format('YYYY-MM-DD') : '--';
+}
+function normalizeDateParam(value?: string | null) {
+  if (!value || value === ALL_HOLDINGS_VALUE) return undefined;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : undefined;
 }
 function formatTime(value?: string | null) {
   return value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '--';

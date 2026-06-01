@@ -3,7 +3,7 @@ export interface RuntimeConfig {
 }
 
 let runtimeConfig: RuntimeConfig = {
-  apiBaseUrl: 'http://localhost:18080/api',
+  apiBaseUrl: '/api',
 };
 
 export async function loadRuntimeConfig() {

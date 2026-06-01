@@ -21,12 +21,12 @@
         <strong>{{ formatInt(overviewCards.account_count) }}</strong>
       </div>
       <div class="signal-item">
-        <span class="signal-label">今日净收益</span>
-        <strong :class="profitTypeClass(overviewCards.total_holding_actual_profit)">{{ formatMoney(overviewCards.total_holding_actual_profit) }}</strong>
+        <span class="signal-label">全账户当日资产变化</span>
+        <strong :class="profitTypeClass(overviewCards.daily_profit)">{{ formatMoney(overviewCards.daily_profit) }}</strong>
       </div>
       <div class="signal-item">
-        <span class="signal-label">日内 T 累计已实现收益</span>
-        <strong :class="profitTypeClass(overviewCards.total_intraday_t_profit)">{{ formatMoney(overviewCards.total_intraday_t_profit) }}</strong>
+        <span class="signal-label">全账户当日已实现收益</span>
+        <strong :class="profitTypeClass(overviewCards.daily_realized_profit)">{{ formatMoney(overviewCards.daily_realized_profit) }}</strong>
       </div>
       <div class="signal-item">
         <span class="signal-label">未匹配交易总数</span>
@@ -38,7 +38,9 @@
       <MetricCard title="总资产" :value="formatMoney(overviewCards.total_assets)" subtext="账户层总资产合计" />
       <MetricCard title="总可用资金" :value="formatMoney(overviewCards.total_available_amount)" subtext="当前可用于后续交易的资金" />
       <MetricCard title="总持仓市值" :value="formatMoney(overviewCards.total_market_value)" subtext="全部账户当前持仓市值合计" />
-      <MetricCard title="今日净收益" :value="formatMoney(overviewCards.total_holding_actual_profit)" :type="profitType(overviewCards.total_holding_actual_profit)" subtext="按最新快照口径汇总的当日净收益" />
+      <MetricCard title="持股总收益" :value="formatMoney(overviewCards.total_holding_actual_profit)" :type="profitType(overviewCards.total_holding_actual_profit)" subtext="按当前持仓浮盈口径汇总" />
+      <MetricCard title="当日资产变化" :value="formatMoney(overviewCards.daily_profit)" :type="profitType(overviewCards.daily_profit)" subtext="最新交易日总资产相对前一交易日变化" />
+      <MetricCard title="当日已实现收益" :value="formatMoney(overviewCards.daily_realized_profit)" :type="profitType(overviewCards.daily_realized_profit)" subtext="最新交易日交易兑现收益合计" />
       <MetricCard
         title="日内 T 累计已实现收益"
         :value="formatMoney(overviewCards.total_intraday_t_profit)"
@@ -54,13 +56,13 @@
     </div>
 
     <div class="chart-grid-3">
-      <ChartCard title="近 10 日账户当前总净利润" :option="holdingProfitTrendOption" height="320px" />
-      <ChartCard title="近 10 日初始成本口径总净利润" :option="initProfitTrendOption" height="320px" />
-      <ChartCard title="近 10 日今日日内T收益" :option="dailyTTrendOption" height="320px" />
+      <ChartCard title="每日总资产曲线" :option="totalAssetsTrendOption" height="320px" />
+      <ChartCard title="每日资产变化" :option="dailyProfitTrendOption" height="320px" />
+      <ChartCard title="现金 / 持仓市值结构" :option="assetStructureOption" height="320px" />
     </div>
 
     <div class="chart-grid">
-      <ChartCard title="近 10 日账户当前净利润率" :option="profitRateTrendOption" height="320px" />
+      <ChartCard title="每日资产变化率" :option="dailyProfitRateTrendOption" height="320px" />
       <ChartCard title="账户今日日内T收益排行" :option="dailyTRankingOption" height="320px" />
     </div>
 
@@ -127,6 +129,8 @@ const moneyColumns = [
   'total_init_cost_holding_profit',
   'total_intraday_t_profit',
   'daily_intraday_t_profit',
+  'daily_profit',
+  'daily_realized_profit',
 ];
 const percentColumns = ['account_profit_rate'];
 
@@ -145,10 +149,10 @@ const columns = [
   { title: '操作', key: 'action', fixed: 'right', width: 140 },
 ];
 
-const holdingProfitTrendOption = computed(() => buildLineOption('近 10 日账户当前总净利润', overviewDaily.value, 'total_holding_actual_profit', '#c1121f'));
-const initProfitTrendOption = computed(() => buildLineOption('近 10 日初始成本口径总净利润', overviewDaily.value, 'total_init_cost_holding_profit', '#8b5cf6'));
-const dailyTTrendOption = computed(() => buildBarOption('近 10 日今日日内T收益', overviewDaily.value, 'daily_intraday_t_profit'));
-const profitRateTrendOption = computed(() => buildLineOption('近 10 日账户当前净利润率', overviewDaily.value, 'account_profit_rate', '#277da1'));
+const totalAssetsTrendOption = computed(() => buildLineOption('每日总资产曲线', overviewDaily.value, 'total_assets', '#243447'));
+const dailyProfitTrendOption = computed(() => buildBarOption('每日资产变化', overviewDaily.value, 'daily_profit'));
+const dailyProfitRateTrendOption = computed(() => buildLineOption('每日资产变化率', overviewDaily.value, 'daily_profit_rate', '#277da1'));
+const assetStructureOption = computed(() => buildStackOption(overviewDaily.value));
 const dailyTRankingOption = computed(() => buildRankingOption('账户今日日内T收益排行', overviewCharts.value.dailyTRanking, 'daily_intraday_t_profit'));
 
 async function loadAll() {
@@ -175,24 +179,65 @@ function normalizeRankingData(list: any[] = [], valueKey: string) {
 }
 
 function buildLineOption(title: string, list: DailyOverviewPoint[], valueKey: keyof DailyOverviewPoint, color: string) {
+  const filtered = list.filter((item) => item[valueKey] != null);
+  const zoomStart = filtered.length > 10 ? ((filtered.length - 10) / filtered.length) * 100 : 0;
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 46, bottom: 56 },
-    xAxis: { type: 'category', data: list.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
+    grid: { left: 50, right: 20, top: 46, bottom: 80 },
+    xAxis: { type: 'category', data: filtered.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
     yAxis: { type: 'value', axisLabel: { color: '#6b7280' }, splitLine: { lineStyle: { color: 'rgba(29, 39, 53, 0.08)' } } },
-    series: [{ type: 'line', smooth: true, data: list.map((item) => Number(item[valueKey] || 0)), symbol: 'circle', symbolSize: 8, lineStyle: { width: 3, color }, itemStyle: { color }, areaStyle: { color: `${color}22` } }],
+    dataZoom: [
+      { type: 'inside', start: zoomStart, end: 100, zoomOnMouseWheel: false, moveOnMouseMove: true, moveOnMouseWheel: true },
+    ],
+    series: [{ type: 'line', smooth: true, data: filtered.map((item) => Number(item[valueKey])), symbol: 'circle', symbolSize: 8, lineStyle: { width: 3, color }, itemStyle: { color }, areaStyle: { color: `${color}22` } }],
     title: { text: title, left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
   };
 }
 
 function buildBarOption(title: string, list: DailyOverviewPoint[], valueKey: keyof DailyOverviewPoint) {
+  const filtered = list.filter((item) => item[valueKey] != null);
+  const zoomStart = filtered.length > 10 ? ((filtered.length - 10) / filtered.length) * 100 : 0;
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 46, bottom: 56 },
+    grid: { left: 50, right: 20, top: 46, bottom: 80 },
+    xAxis: { type: 'category', data: filtered.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
+    yAxis: { type: 'value', axisLabel: { color: '#6b7280' }, splitLine: { lineStyle: { color: 'rgba(29, 39, 53, 0.08)' } } },
+    dataZoom: [
+      { type: 'inside', start: zoomStart, end: 100, zoomOnMouseWheel: false, moveOnMouseMove: true, moveOnMouseWheel: true },
+    ],
+    series: [{ type: 'bar', data: filtered.map((item) => Number(item[valueKey])), barMaxWidth: 28, itemStyle: { borderRadius: [8, 8, 0, 0], color: (params: any) => Number(params.value) >= 0 ? '#c1121f' : '#067647' } }],
+    title: { text: title, left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
+  };
+}
+
+function buildStackOption(list: DailyOverviewPoint[]) {
+  const zoomStart = list.length > 10 ? ((list.length - 10) / list.length) * 100 : 0;
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { top: 22, data: ['现金', '持仓市值'] },
+    grid: { left: 50, right: 20, top: 70, bottom: 80 },
     xAxis: { type: 'category', data: list.map((item) => item.profit_date), axisLabel: { color: '#6b7280' } },
     yAxis: { type: 'value', axisLabel: { color: '#6b7280' }, splitLine: { lineStyle: { color: 'rgba(29, 39, 53, 0.08)' } } },
-    series: [{ type: 'bar', data: list.map((item) => Number(item[valueKey] || 0)), barMaxWidth: 28, itemStyle: { borderRadius: [8, 8, 0, 0], color: (params: any) => Number(params.value || 0) >= 0 ? '#c1121f' : '#067647' } }],
-    title: { text: title, left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
+    dataZoom: [
+      { type: 'inside', start: zoomStart, end: 100, zoomOnMouseWheel: false, moveOnMouseMove: true, moveOnMouseWheel: true },
+    ],
+    series: [
+      {
+        name: '现金',
+        type: 'bar',
+        stack: 'asset',
+        data: list.map((item) => Number(item.total_available_amount ?? 0)),
+        itemStyle: { color: '#277da1' },
+      },
+      {
+        name: '持仓市值',
+        type: 'bar',
+        stack: 'asset',
+        data: list.map((item) => Number(item.total_market_value ?? 0)),
+        itemStyle: { color: '#d9ab4d' },
+      },
+    ],
+    title: { text: '现金 / 持仓市值结构', left: 'center', textStyle: { fontSize: 14, fontFamily: 'STZhongsong, serif', color: '#1f2937' } },
   };
 }
 
