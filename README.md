@@ -78,3 +78,17 @@ mvn -DskipTests package
 ```
 
 后端打包时会把 `frontend/dist` 复制到 Spring Boot 的静态资源目录，生成可直接部署的后端包。
+
+## 服务器部署
+
+编译后的 jar 包部署在服务器路径：
+
+```text
+/data/liuwei/java/jars
+```
+
+在该目录下执行以下命令后台启动服务：
+
+```bash
+nohup java -jar customer-stock-report-backend-1.0.0.jar > ../log/output.log 2>&1 &
+```
